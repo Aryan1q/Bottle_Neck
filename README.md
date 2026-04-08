@@ -51,8 +51,8 @@ Vehicle Features
    ▼                    ▼                   ▼
 ┌──────────┐   ┌──────────────────┐   ┌───────────────┐
 │ Decoder  │   │ Waiting Decoder  │   │  Congestion   │
-│ (≈ NST   │   │ (≈ AdaIN output) │   │  Classifier   │
-│ decoder) │   │                  │   │ (≈ loss net)  │
+│          │   │                  │   │  Classifier   │
+│          │   │                  │   │ (≈ loss net)  │
 └──────────┘   └──────────────────┘   └───────────────┘
       │                 │                    │
       ▼                 ▼                    ▼
