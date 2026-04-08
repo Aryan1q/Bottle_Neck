@@ -1,10 +1,10 @@
-# 🚦 The Bottleneck Problem
+# The Bottleneck Problem
 ### CONVOKE 8.0 — KnowledgeQuarry | Data Science Challenge
 **CIC · University of Delhi · ML Engineering Track**
 
 ---
 
-## 🧠 Problem Context
+## Problem Context
 
 In urban environments, traffic congestion rarely stems from vehicle density alone — it emerges from **unstructured human behaviour in constrained spaces**. A wide road narrows into a bottleneck (lane reduction, railway crossing, intersection), vehicles abandon lane discipline, merge aggressively, and conflicting diagonal movements create cascading delays or full gridlock.
 
@@ -17,13 +17,13 @@ The solution addresses all three **required metrics** from the problem statement
 
 | Metric | How it's addressed |
 |---|---|
-| ✅ Avg Waiting Time | Regressed directly as a model output |
-| ✅ Throughput (veh/unit time) | Computed and visualised per lane over time windows |
-| ✅ Congestion | Binary classification + confusion matrix evaluation |
+| Avg Waiting Time | Regressed directly as a model output |
+| Throughput (veh/unit time) | Computed and visualised per lane over time windows |
+| Congestion | Binary classification + confusion matrix evaluation |
 
 ---
 
-## 📐 Approach: Simulated Environment
+## Approach: Simulated Environment
 
 The solution follows **Approach 01 (Simulated Environment)** from the problem statement. A synthetic dataset (`traffic_bottleneck_dataset.csv`) models a 3-lane bottleneck scenario with parameterised road structure, arrival rates, and driver behaviour.
 
@@ -34,31 +34,9 @@ The solution follows **Approach 01 (Simulated Environment)** from the problem st
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 The model is a **multi-task neural network** mapping the encoder → decoder → loss-net pattern onto a traffic problem:
-
-```
-Vehicle Features
-      │
-      ▼
-┌─────────────┐
-│   Encoder   │  Dense(128) → BN → Dropout → Dense(64) → BN
-│  (≈ VGG)    │  Learns a latent "traffic state" embedding
-└──────┬──────┘
-       │  64-dim latent vector
-   ┌───┴────────────────┬───────────────────┐
-   ▼                    ▼                   ▼
-┌──────────┐   ┌──────────────────┐   ┌───────────────┐
-│ Decoder  │   │ Waiting Decoder  │   │  Congestion   │
-│          │   │                  │   │  Classifier   │
-│          │   │                  │   │ (≈ loss net)  │
-└──────────┘   └──────────────────┘   └───────────────┘
-      │                 │                    │
-      ▼                 ▼                    ▼
-merge_delay_sec   waiting_time_sec    congestion_flag
-  (regression)      (regression)      (binary class)
-```
 
 **Multi-task loss:**
 ```
@@ -67,7 +45,7 @@ total_loss = MSE(merge_delay) + MSE(waiting_time) + 0.4 × BCE(congestion)
 
 ---
 
-## 📦 Dataset
+## Dataset
 
 **File:** `traffic_bottleneck_dataset.csv`
 
@@ -93,7 +71,7 @@ total_loss = MSE(merge_delay) + MSE(waiting_time) + 0.4 × BCE(congestion)
 
 ---
 
-## ⚙️ Setup
+## Setup
 
 This notebook runs entirely on **Google Colab** — no local setup needed.
 
@@ -109,7 +87,7 @@ Google Drive is mounted to persist checkpoints at:
 
 ---
 
-## 🚀 Usage
+## Usage
 
 1. Open `bottleneck.ipynb` in Google Colab
 2. Run all cells in order
@@ -124,7 +102,7 @@ model.load_weights(CHECKPOINT_PATH)
 
 ---
 
-## 🔧 Model Components
+## Model Components
 
 ### Encoder
 Learns a compressed 64-dim representation of the traffic state.
@@ -152,7 +130,7 @@ Latent(64) → Dense(32, ReLU) → Dropout(0.2) → Dense(1, sigmoid)
 
 ---
 
-## 🏋️ Training Configuration
+## Training Configuration
 
 | Hyperparameter | Value |
 |---|---|
@@ -196,7 +174,7 @@ A **6-panel model dashboard** is saved to `traffic_dashboard.png`:
 
 ---
 
-## 🚥 Signal Optimiser
+## Signal Optimiser
 
 The optimiser is the practical output of this project — directly addressing the problem's goal of improving flow through **signal timing control**. It evaluates 9 scenarios (3 lanes × 3 aggressiveness levels) and recommends a green-phase duration for each:
 
@@ -206,14 +184,14 @@ Extra green      : max(0, int((predicted_delay − 10) × 0.8))
 Recommended      : base + extra
 ```
 
-- 🟢 Green bar — no congestion predicted, standard timing
-- 🔴 Red bar — congestion likely, extended green phase recommended
+- Green bar — no congestion predicted, standard timing
+- Red bar — congestion likely, extended green phase recommended
 
 Results are printed as a table and saved to `signal_optimiser.png`.
 
 ---
 
-## 📁 Output Files
+## Output Files
 
 | File | Description |
 |---|---|
@@ -223,12 +201,12 @@ Results are printed as a table and saved to `signal_optimiser.png`.
 
 ---
 
-## 📋 Constraints Checklist
+## Constraints Checklist
 
 | Constraint | Requirement | Status |
 |---|---|---|
-| C-01 | Single bottleneck type | ✅ 3-lane merge scenario |
-| C-02 | At least one defined metric optimised | ✅ Waiting time + Throughput + Congestion |
-| C-03 | Assumptions clearly stated | ✅ Simulated data, aggressiveness model, lane assumptions above |
+| C-01 | Single bottleneck type | 3-lane merge scenario |
+| C-02 | At least one defined metric optimised | Waiting time + Throughput + Congestion |
+| C-03 | Assumptions clearly stated | Simulated data, aggressiveness model, lane assumptions above |
 
 Out of scope (per problem statement): physical infrastructure redesign, legal/enforcement systems, hardware implementation.
