@@ -36,7 +36,7 @@ The solution follows **Approach 01 (Simulated Environment)** from the problem st
 
 ## 🏗️ Architecture
 
-The model is a **multi-task neural network** whose structure is intentionally analogous to Neural Style Transfer (NST), mapping the encoder → decoder → loss-net pattern onto a traffic problem:
+The model is a **multi-task neural network** mapping the encoder → decoder → loss-net pattern onto a traffic problem:
 
 ```
 Vehicle Features
