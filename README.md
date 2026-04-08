@@ -1,38 +1,73 @@
-# Traffic Bottleneck Predictor
-### CONVOKE 8.0 — KnowledgeQuarry | Problem 01: The Bottleneck Problem
-
-A multi-task deep learning model that predicts traffic merge delays, waiting times, and congestion status at road bottlenecks. The architecture is inspired by Neural Style Transfer (NST), mapping its encoder–decoder–loss-net pattern onto a traffic simulation problem.
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Dataset](#dataset)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Model Components](#model-components)
-- [Training](#training)
-- [Evaluation](#evaluation)
-- [Signal Optimiser](#signal-optimiser)
-- [Outputs](#outputs)
+# 🚦 The Bottleneck Problem
+### CONVOKE 8.0 — KnowledgeQuarry | Data Science Challenge
+**CIC · University of Delhi · ML Engineering Track**
 
 ---
 
-## Overview
+## 🧠 Problem Context
 
-This notebook trains a neural network to simultaneously:
+In urban environments, traffic congestion rarely stems from vehicle density alone — it emerges from **unstructured human behaviour in constrained spaces**. A wide road narrows into a bottleneck (lane reduction, railway crossing, intersection), vehicles abandon lane discipline, merge aggressively, and conflicting diagonal movements create cascading delays or full gridlock.
 
-1. **Regress** `merge_delay_sec` — how long a vehicle is delayed at the bottleneck.
-2. **Regress** `waiting_time` — total time a vehicle spends in the system.
-3. **Classify** `congestion_flag` — whether a vehicle experiences congestion (binary).
+This project is a **data-driven solution** to model, analyse, and improve traffic flow at such bottlenecks. It targets the ML Engineering Track, which requires:
+- Predicting congestion and flow patterns
+- Simulating traffic dynamics
+- Optimising control strategies (signal timing)
 
-A rule-based **Signal Optimiser** then uses the model's predictions to recommend traffic signal green-phase durations per lane and driver aggressiveness scenario.
+The solution addresses all three **required metrics** from the problem statement:
+
+| Metric | How it's addressed |
+|---|---|
+| ✅ Avg Waiting Time | Regressed directly as a model output |
+| ✅ Throughput (veh/unit time) | Computed and visualised per lane over time windows |
+| ✅ Congestion | Binary classification + confusion matrix evaluation |
 
 ---
 
-## Dataset
+## 📐 Approach: Simulated Environment
+
+The solution follows **Approach 01 (Simulated Environment)** from the problem statement. A synthetic dataset (`traffic_bottleneck_dataset.csv`) models a 3-lane bottleneck scenario with parameterised road structure, arrival rates, and driver behaviour.
+
+> **Assumptions (C-03):**
+> - Traffic rules: vehicles in all 3 lanes compete for the same merge point
+> - Driver behaviour model: encoded as a 3-class aggressiveness level (`low` / `medium` / `high`) that influences merge delay
+> - Data source: fully simulated
+
+---
+
+## 🏗️ Architecture
+
+The model is a **multi-task neural network** whose structure is intentionally analogous to Neural Style Transfer (NST), mapping the encoder → decoder → loss-net pattern onto a traffic problem:
+
+```
+Vehicle Features
+      │
+      ▼
+┌─────────────┐
+│   Encoder   │  Dense(128) → BN → Dropout → Dense(64) → BN
+│  (≈ VGG)    │  Learns a latent "traffic state" embedding
+└──────┬──────┘
+       │  64-dim latent vector
+   ┌───┴────────────────┬───────────────────┐
+   ▼                    ▼                   ▼
+┌──────────┐   ┌──────────────────┐   ┌───────────────┐
+│ Decoder  │   │ Waiting Decoder  │   │  Congestion   │
+│ (≈ NST   │   │ (≈ AdaIN output) │   │  Classifier   │
+│ decoder) │   │                  │   │ (≈ loss net)  │
+└──────────┘   └──────────────────┘   └───────────────┘
+      │                 │                    │
+      ▼                 ▼                    ▼
+merge_delay_sec   waiting_time_sec    congestion_flag
+  (regression)      (regression)      (binary class)
+```
+
+**Multi-task loss:**
+```
+total_loss = MSE(merge_delay) + MSE(waiting_time) + 0.4 × BCE(congestion)
+```
+
+---
+
+## 📦 Dataset
 
 **File:** `traffic_bottleneck_dataset.csv`
 
@@ -40,157 +75,160 @@ A rule-based **Signal Optimiser** then uses the model's predictions to recommend
 |---|---|
 | `vehicle_id` | Unique vehicle identifier |
 | `arrival_time_sec` | When the vehicle arrives at the bottleneck (seconds) |
-| `lane` | Approach lane (1, 2, or 3) |
+| `lane` | Approach lane: 1, 2, or 3 |
 | `speed_kmph` | Approach speed in km/h |
 | `aggressiveness` | Driver behaviour class: `low`, `medium`, or `high` |
-| `merge_delay_sec` | Delay incurred during the merge/bottleneck event (seconds) |
+| `merge_delay_sec` | Delay incurred at the bottleneck merge point (seconds) |
 | `exit_time_sec` | When the vehicle clears the bottleneck (seconds) |
 
-**Derived features (computed during preprocessing):**
+**Engineered features (computed in preprocessing):**
 
-- `waiting_time` = `exit_time_sec` − `arrival_time_sec`
-- `speed_norm` = speed normalised to [0, 1]
-- `lane_gap` = lane-wise inter-vehicle arrival gap (replaces global gap)
-- `rolling_congestion` = rolling 5-vehicle mean of `merge_delay_sec` per lane
-- `congestion_flag` = 1 if `merge_delay_sec` ≥ 60th percentile threshold
-
----
-
-## Architecture
-
-The model mirrors the NST pipeline structure:
-
-```
-vehicle features
-    → Encoder           (Dense encoder ≈ VGG encoder)
-    → Decoder           (merge_delay regression ≈ content decoder)
-    → WaitingDecoder    (waiting_time regression ≈ AdaIN secondary synthesis)
-    → CongestionClf     (binary congestion classification ≈ loss net)
-```
-
-**Multi-task loss:**
-```
-total_loss = delay_MSE + waiting_MSE + STYLE_WEIGHT × congestion_BCE
-```
+| Feature | Description |
+|---|---|
+| `waiting_time` | `exit_time_sec − arrival_time_sec` |
+| `speed_norm` | Speed normalised by fleet max |
+| `lane_gap` | Lane-wise inter-vehicle arrival gap (more accurate than global gap) |
+| `rolling_congestion` | Rolling 5-vehicle mean of `merge_delay_sec` per lane |
+| `congestion_flag` | 1 if `merge_delay_sec` ≥ 60th percentile threshold |
 
 ---
 
-## Installation
+## ⚙️ Setup
 
-This notebook is designed for **Google Colab**. No local setup is needed beyond uploading the notebook and dataset.
+This notebook runs entirely on **Google Colab** — no local setup needed.
 
 **Dependencies** (all pre-installed in Colab):
-
 ```
-tensorflow >= 2.x
-numpy
-pandas
-scikit-learn
-matplotlib
+tensorflow >= 2.x  |  numpy  |  pandas  |  scikit-learn  |  matplotlib
 ```
 
-**Google Drive** is used to persist model checkpoints across sessions.
+Google Drive is mounted to persist checkpoints at:
+```
+/content/drive/MyDrive/traffic_bottleneck/model_weights.weights.h5
+```
 
 ---
 
-## Usage
+## 🚀 Usage
 
-1. Open the notebook in Google Colab.
-2. Run all cells in order.
-3. When prompted, upload `traffic_bottleneck_dataset.csv`.
-4. Training will begin automatically and save the best weights to your Google Drive at:
-   ```
-   /content/drive/MyDrive/traffic_bottleneck/model_weights.weights.h5
-   ```
-5. Evaluation, dashboard, signal optimiser, and inference will run automatically after training.
+1. Open `bottleneck.ipynb` in Google Colab
+2. Run all cells in order
+3. When prompted, upload `traffic_bottleneck_dataset.csv`
+4. Training runs automatically with live monitoring plots every 10 epochs
+5. Evaluation, dashboard, signal optimiser, and inference all run automatically after training
 
-**To load a pre-trained checkpoint** instead of training from scratch, uncomment:
+To resume from a saved checkpoint, uncomment:
 ```python
 model.load_weights(CHECKPOINT_PATH)
 ```
 
 ---
 
-## Model Components
+## 🔧 Model Components
 
 ### Encoder
-- Input → Dense(128, ReLU) → BatchNorm → Dropout(0.2) → Dense(64, ReLU) → BatchNorm
-- Output: 64-dimensional latent traffic embedding
+Learns a compressed 64-dim representation of the traffic state.
+```
+Input(7) → Dense(128, ReLU) → BatchNorm → Dropout(0.2) → Dense(64, ReLU) → BatchNorm
+```
 
-### Decoder (Merge Delay)
-- Latent → Dense(64, ReLU) → Dropout(0.15) → Dense(32, ReLU) → Dense(1, linear)
+### Merge Delay Decoder
+Predicts how long a vehicle will be delayed at the merge point.
+```
+Latent(64) → Dense(64, ReLU) → Dropout(0.15) → Dense(32, ReLU) → Dense(1, linear)
+```
 
-### Waiting Decoder
-- Latent → Dense(32, ReLU) → Dense(1, linear)
+### Waiting Time Decoder
+Predicts total time in system from arrival to exit.
+```
+Latent(64) → Dense(32, ReLU) → Dense(1, linear)
+```
 
 ### Congestion Classifier
-- Latent → Dense(32, ReLU) → Dropout(0.2) → Dense(1, sigmoid)
+Binary prediction of whether a vehicle hits congestion.
+```
+Latent(64) → Dense(32, ReLU) → Dropout(0.2) → Dense(1, sigmoid)
+```
 
 ---
 
-## Training
+## 🏋️ Training Configuration
 
 | Hyperparameter | Value |
 |---|---|
 | Batch size | 32 |
-| Epochs | 50 (with early stopping) |
-| Latent dim | 64 |
+| Max epochs | 50 |
+| Latent dimension | 64 |
 | Learning rate | 1e-3 |
-| Style weight (classification loss) | 0.4 |
-| Congestion percentile threshold | 60th |
-| Train/val split | 80/20, stratified |
+| Classification loss weight | 0.4 |
+| Congestion threshold | 60th percentile of `merge_delay_sec` |
+| Train / val split | 80 / 20, stratified on congestion label |
 
 **Callbacks:**
-- `ModelCheckpoint` — saves best weights to Drive (monitors `val_loss`)
-- `EarlyStopping` — patience of 10 epochs, restores best weights
-- `ReduceLROnPlateau` — halves LR after 5 stagnant epochs (min LR: 1e-6)
-- `TrafficMonitor` — plots predicted vs actual merge delay every 10 epochs
+
+| Callback | Behaviour |
+|---|---|
+| `ModelCheckpoint` | Saves best weights to Drive (monitors `val_loss`) |
+| `EarlyStopping` | Stops after 10 stagnant epochs; restores best weights |
+| `ReduceLROnPlateau` | Halves LR after 5 stagnant epochs (floor: 1e-6) |
+| `TrafficMonitor` | Plots predicted vs actual merge delay every 10 epochs |
 
 ---
 
-## Evaluation
+## 📊 Evaluation
 
-Metrics reported on the validation set:
+Metrics reported on the held-out validation set:
 
-- **Merge delay:** MAE, RMSE
-- **Waiting time:** MAE, RMSE
-- **Congestion classification:** Accuracy, classification report (precision/recall/F1)
+| Output | Metrics |
+|---|---|
+| Merge delay | MAE, RMSE |
+| Waiting time | MAE, RMSE |
+| Congestion flag | Accuracy, Precision, Recall, F1 |
 
-A 6-panel **Model Dashboard** is generated and saved to `/content/traffic_dashboard.png`, showing:
+A **6-panel model dashboard** is saved to `traffic_dashboard.png`:
 
 1. Predicted vs actual merge delay (scatter)
 2. Training loss curve
-3. Congestion ROC curve
+3. Congestion ROC curve with AUC
 4. Merge delay distribution by driver aggressiveness
 5. Throughput per lane over time (stacked bar)
-6. Congestion classification confusion matrix
+6. Congestion confusion matrix
 
 ---
 
-## Signal Optimiser
+## 🚥 Signal Optimiser
 
-After training, the optimiser evaluates 9 hypothetical scenarios (3 lanes × 3 aggressiveness levels) and recommends a traffic signal green-phase duration for each:
+The optimiser is the practical output of this project — directly addressing the problem's goal of improving flow through **signal timing control**. It evaluates 9 scenarios (3 lanes × 3 aggressiveness levels) and recommends a green-phase duration for each:
 
 ```
-Base green phase: 30s
-Extra green      = max(0, int((predicted_delay − 10) × 0.8))
-Recommended      = base + extra
+Base green phase : 30 seconds
+Extra green      : max(0, int((predicted_delay − 10) × 0.8))
+Recommended      : base + extra
 ```
 
-A bar chart is saved to `/content/signal_optimiser.png` with green bars (no congestion predicted) and red bars (congestion likely).
+- 🟢 Green bar — no congestion predicted, standard timing
+- 🔴 Red bar — congestion likely, extended green phase recommended
+
+Results are printed as a table and saved to `signal_optimiser.png`.
 
 ---
 
-## Outputs
+## 📁 Output Files
 
 | File | Description |
 |---|---|
-| `model_weights.weights.h5` | Best model checkpoint (saved to Drive) |
+| `model_weights.weights.h5` | Best model checkpoint (Google Drive) |
 | `traffic_dashboard.png` | 6-panel evaluation dashboard |
-| `signal_optimiser.png` | Signal timing recommendation chart |
+| `signal_optimiser.png` | Signal timing recommendations per scenario |
 
 ---
 
-## Project Context
+## 📋 Constraints Checklist
 
-This project is part of **CONVOKE 8.0 — KnowledgeQuarry**, ML Engineering Track, Problem 01. The NST-inspired architecture is an intentional design choice to demonstrate how encoder–decoder–loss-net patterns generalise beyond image stylisation to structured tabular/simulation problems.
+| Constraint | Requirement | Status |
+|---|---|---|
+| C-01 | Single bottleneck type | ✅ 3-lane merge scenario |
+| C-02 | At least one defined metric optimised | ✅ Waiting time + Throughput + Congestion |
+| C-03 | Assumptions clearly stated | ✅ Simulated data, aggressiveness model, lane assumptions above |
+
+Out of scope (per problem statement): physical infrastructure redesign, legal/enforcement systems, hardware implementation.
