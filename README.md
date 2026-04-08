@@ -153,7 +153,7 @@ Latent(64) → Dense(32, ReLU) → Dropout(0.2) → Dense(1, sigmoid)
 
 ---
 
-## 📊 Evaluation
+## Evaluation
 
 Metrics reported on the held-out validation set:
 
